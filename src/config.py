@@ -1,0 +1,162 @@
+import os
+import yaml
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+class AppConfig:
+    def __init__(self, config_path=None):
+        self.config_path = config_path
+        
+        # Core built-in defaults (Level 4 Fallback)
+        self.provider = "deepseek"
+        self.wiki_dir = os.path.expanduser("~/Documents/antigravity/llm_wiki")
+        self.temp_dir = "./temp"
+        self.asr_model_size = "base"
+        self.asr_language = "zh"
+        self.asr_subtitle_first = True
+        
+        self.scene_threshold = 0.02
+        self.max_interval_sec = 15
+        self.max_width = 1280
+        self.visual_min_frames = 0
+        self.visual_max_frames = 8
+        self.visual_trigger_window_sec = 6
+        self.visual_min_gap_sec = 12
+        self.visual_min_score = 2.5
+        self.enable_images = False
+        self.image_link_style = "standard"
+        
+        # Qwen settings
+        self.qwen_api_key = ""
+        self.qwen_model = "qwen3-vl-plus"
+        self.qwen_visual_locator_model = "qwen3-vl-plus"
+        self.qwen_composer_model = "qwen3-vl-plus"
+        self.qwen_api_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        
+        # DeepSeek settings
+        self.deepseek_api_key = ""
+        self.deepseek_model = "deepseek-v4-pro"
+        self.deepseek_api_base = "https://api.deepseek.com"
+        self.deepseek_enable_thinking = True
+        self.deepseek_reasoning_effort = "high"
+        
+        self.load_config()
+
+    def load_config(self):
+        # 1. Sourcing shell profiles first to inherit credential keys seamlessly
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._load_env_file(os.path.join(root_dir, ".env"))
+        self._load_env_file(os.path.expanduser("~/.zshrc"))
+        self._load_env_file(os.path.expanduser("~/.zprofile"))
+        self._load_env_file(os.path.expanduser("~/.zshenv"))
+
+        # 2. 4-Level Configuration File Finder
+        resolved_path = None
+        
+        # Level 1: Explicit custom override
+        if self.config_path and os.path.exists(self.config_path):
+            resolved_path = self.config_path
+        else:
+            # Level 2: CWD `./config.yaml`
+            cwd_path = os.path.abspath("./config.yaml")
+            if os.path.exists(cwd_path):
+                resolved_path = cwd_path
+            else:
+                # Level 3: Global user config `~/.config/video-to-wiki/config.yaml`
+                home_path = os.path.expanduser("~/.config/video-to-wiki/config.yaml")
+                if os.path.exists(home_path):
+                    resolved_path = home_path
+
+        # Level 4: Built-in Defaults Fallback
+        if not resolved_path:
+            logging.info("未匹配到任何 config.yaml 配置文件。将启用内置默认参数进行初始化...")
+            self._resolve_keys()
+            
+            # Make relative temp_dir absolute relative to package root
+            if not os.path.isabs(self.temp_dir):
+                self.temp_dir = os.path.abspath(os.path.join(root_dir, self.temp_dir))
+            os.makedirs(self.temp_dir, exist_ok=True)
+            return
+
+        self.config_path = resolved_path
+        logging.info(f"成功加载配置文件: {self.config_path}")
+        
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+            
+        self.provider = data.get("provider", "deepseek")
+        self.wiki_dir = os.path.abspath(os.path.expanduser(data.get("wiki_dir", "~/Documents/antigravity/llm_wiki")))
+        self.temp_dir = data.get("temp_dir", "./temp")
+        if not os.path.isabs(self.temp_dir):
+            self.temp_dir = os.path.abspath(os.path.join(root_dir, self.temp_dir))
+        
+        # ASR Config
+        asr = data.get("asr", {})
+        self.asr_model_size = asr.get("model_size", "base")
+        self.asr_language = asr.get("language", "zh")
+        self.asr_subtitle_first = asr.get("subtitle_first", True)
+        
+        # Sampling Config
+        sampling = data.get("sampling", {})
+        self.scene_threshold = sampling.get("scene_threshold", 0.02)
+        self.max_interval_sec = sampling.get("max_interval_sec", 15)
+        self.max_width = sampling.get("max_width", 1280)
+
+        # Visual Locator Config
+        visual_locator = data.get("visual_locator", {})
+        self.enable_images = visual_locator.get("enabled", False)
+        self.visual_min_frames = visual_locator.get("min_frames", 0)
+        self.visual_max_frames = visual_locator.get("max_frames", 8)
+        self.visual_trigger_window_sec = visual_locator.get("trigger_window_sec", 6)
+        self.visual_min_gap_sec = visual_locator.get("min_gap_sec", 12)
+        self.visual_min_score = visual_locator.get("min_score", 2.5)
+
+        # Output Config
+        output = data.get("output", {})
+        self.image_link_style = output.get("image_link_style", "standard")
+        
+        # Qwen Config
+        qwen = data.get("qwen", {})
+        self.qwen_api_key = qwen.get("api_key", "")
+        self.qwen_model = qwen.get("model", "qwen3-vl-plus")
+        self.qwen_visual_locator_model = qwen.get("visual_locator_model", self.qwen_model)
+        self.qwen_composer_model = qwen.get("composer_model", self.qwen_model)
+        self.qwen_api_base = qwen.get("api_base", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+
+        # DeepSeek Config
+        deepseek = data.get("deepseek", {})
+        self.deepseek_api_key = deepseek.get("api_key", "")
+        self.deepseek_model = deepseek.get("model", "deepseek-v4-pro")
+        self.deepseek_api_base = deepseek.get("api_base", "https://api.deepseek.com")
+        self.deepseek_enable_thinking = deepseek.get("enable_thinking", True)
+        self.deepseek_reasoning_effort = deepseek.get("reasoning_effort", "high")
+        
+        self._resolve_keys()
+        os.makedirs(self.temp_dir, exist_ok=True)
+
+    def _resolve_keys(self):
+        # Resolve Qwen API Key from environment if blank in config
+        if not self.qwen_api_key:
+            self.qwen_api_key = os.environ.get("DASHSCOPE_API_KEY", "")
+        if not self.qwen_api_key:
+            self.qwen_api_key = os.environ.get("BAILIAN_API_KEY", "")
+        if not self.deepseek_api_key:
+            self.deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+
+    def _load_env_file(self, env_path):
+        if not os.path.exists(env_path):
+            return
+
+        with open(env_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):].strip()
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip("'").strip('"')
+                if key and value and key not in os.environ:
+                    os.environ[key] = value

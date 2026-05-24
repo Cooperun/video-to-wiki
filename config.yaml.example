@@ -1,0 +1,70 @@
+# Video to Wiki Ingestion Configuration Template
+
+# 默认的多模态引擎驱动 (可选项: qwen, zhipu, gemini)
+provider: "qwen"
+
+# 阿里云百炼 (Qwen-VL) 配置
+qwen:
+  # 百炼 API Key。如为空，将默认读取环境变量 DASHSCOPE_API_KEY
+  api_key: ""
+  # 当前视觉链路使用的百炼视觉模型。默认图片链路关闭，只有 visual_locator.enabled=true 时才会使用。
+  # 质量优先推荐 qwen3-vl-plus；成本优先可用 qwen3-vl-flash / qwen2.5-vl-7b-instruct。
+  model: "qwen3-vl-plus"
+  # 后续 VisualLocator 拆分后建议启用：选图用更强视觉模型，写作用长上下文/成本更合适的模型。
+  visual_locator_model: "qwen3-vl-plus"
+  composer_model: "qwen3-vl-plus"
+  # 百炼的 OpenAI 兼容端点
+  api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# DeepSeek 官方 API 配置：用于默认纯文字总结链路
+deepseek:
+  # 如为空，将默认读取环境变量 DEEPSEEK_API_KEY；程序也会尝试读取 ~/.zshrc / ~/.zprofile / ~/.zshenv
+  api_key: ""
+  api_base: "https://api.deepseek.com"
+  model: "deepseek-v4-pro"
+  enable_thinking: true
+  reasoning_effort: "high"
+
+# 本地知识库 llm_wiki 路径 (会被自动同步到该目录下)
+# 默认使用 goofy-meitner 同级目录下的 llm_wiki，你可以修改为你的真实本地 Wiki 路径
+wiki_dir: "/Users/byron/Documents/antigravity/llm_wiki"
+
+# 本地音频与图片处理临时目录 (处理完后会自动清空，释放空间)
+temp_dir: "./temp"
+
+# 本地 ASR 语音识别配置
+asr:
+  # faster-whisper 模型大小，可选: tiny, base, small (推荐，CPU/M4速度适中，精度极佳)
+  model_size: "small"
+  # 优先语言
+  language: "zh"
+
+# 抽帧过滤配置
+sampling:
+  # 自适应画面变动灵敏度 (0.02 表示画面变化大于 2% 时进行抽帧，数值越小抽帧越密集)
+  scene_threshold: 0.02
+  # 强制最大静止间隔秒数 (超过该秒数画面无变动，也强制抽一帧，防止遗漏关键 PPT 页面)
+  max_interval_sec: 15
+  # 候选图片最大宽度 (等比例缩放，降低像素降低 API Token 消耗并缩短网络耗时)
+  max_width: 1280
+
+# 视觉补充定位配置：只在画面包含文字难以完整转述的信息时保存截图
+visual_locator:
+  # 当前默认关闭图片链路，只基于音频/字幕生成文字笔记。
+  enabled: false
+  # 默认不强制保底截图。只有画面包含文字难以完整转述的表格、参数、图表、代码、界面等信息时才保存。
+  min_frames: 0
+  # 送入视觉模型前最多保留多少张候选图
+  max_frames: 8
+  # 语义触发词前后多少秒内的候选帧优先考虑
+  trigger_window_sec: 6
+  # 两张候选截图之间的最小时间距离，减少重复帧
+  min_gap_sec: 12
+  # 视觉补充候选的最低分数。越高越保守。
+  min_score: 2.5
+
+# 输出格式配置
+output:
+  # standard: ![说明](assets/image.jpg)，兼容 Obsidian、网页、GitHub Markdown、Hermes 等大多数渲染器
+  # obsidian: ![[assets/image.jpg]]，仅适合 Obsidian WikiLink 图片嵌入
+  image_link_style: "standard"
