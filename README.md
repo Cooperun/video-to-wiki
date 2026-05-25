@@ -25,30 +25,23 @@
 
 ## 📺 支持的视频平台与链接范围
 
-本工具依靠极其强大的 `yt-dlp` 解析后端，能无缝解析全球数百个主流视频与社交平台的在线链接，支持的视频链接范围与处理方式如下：
+本工具专注于对主流技术视频与知识分享平台进行高精度的知识提取，已通过端到端测试验证的在线支持范围如下：
 
-### 1. 支持的在线视频平台及链接范围
+### 1. 支持的在线视频平台
 *   🇨🇳 **哔哩哔哩 (Bilibili)**
-    *   **支持范围**：标准单视频（如 `https://www.bilibili.com/video/BV1xxxxxx/`）、短链接（如 `https://b23.tv/xxxxxx`）、多 P 视频（自动读取第一 P，或通过 URL 中包含 `?p=N` 参数精准导入第 N 批）、番剧与国创视频。
-    *   **特别说明**：*为了保护用户隐私，本项目的 README 示例中已全部去除了任何真实的 Bilibili 视频链接，统一采用脱敏的 `BV1xxxxxx` 占位符进行演示。*
+    *   **支持范围**：标准单视频（如 `https://www.bilibili.com/video/BV1xxxxxx/`）、短链接（如 `https://b23.tv/xxxxxx`）、多 P 视频（默认读取第一 P，或通过 URL 中包含 `?p=N` 精准导入指定分 P）。
+    *   **特别说明**：*为了保护隐私，本项目的 README 示例中已全部去除了任何真实的 Bilibili 视频链接，统一采用脱敏的 `BV1xxxxxx` 占位符进行演示。*
 *   🌎 **YouTube**
-    *   **支持范围**：标准播放页面链接（如 `https://www.youtube.com/watch?v=xxxxxx`）、Shorts 短视频链接（如 `https://www.youtube.com/shorts/xxxxxx`）、分享短链（如 `https://youtu.be/xxxxxx`）、YouTube Playlists 播放列表。
-*   📱 **小红书 (Xiaohongshu/xhs)**
-    *   **支持范围**：APP 内分享的短链接（如 `https://xhslink.com/xxxxxx`）以及网页版详情页链接（如 `https://www.xiaohongshu.com/explore/xxxxxx`）。
-*   🎵 **抖音 & 快手 & TikTok**
-    *   **支持范围**：APP 端生成的分享短链接及网页端直接播放的视频链接。
-*   🌐 **其他主流音视频平台**
-    *   **支持范围**：西瓜视频、优酷、爱奇艺、Vimeo、Twitch、TED Talks、Twitter/X 等全球数百个支持视频播放的媒体站点。
+    *   **支持范围**：标准播放页面链接（如 `https://www.youtube.com/watch?v=xxxxxx`）、Shorts 短视频链接（如 `https://www.youtube.com/shorts/xxxxxx`）、分享短链（如 `https://youtu.be/xxxxxx`）。
 
-### 2. 强风控/加密视频的保底机制 (如微信视频号)
-> [!IMPORTANT]
-> 针对微信视频号、部分平台带强登录态校验、强数字版权保护 (DRM) 的加密视频流，由于平台接口限制，直接输入 URL 链接可能会触发下载失败。
+### 2. 其他平台/加密视频的本地导入机制
+> [!TIP]
+> 针对非上述原生支持的在线视频平台（如微信视频号、录屏会议、或带有强防爬加密校验的视频链接），直接传入在线 URL 可能会由于平台风控或解析限制而失败。
 >
-> **完美替代方案**：用户只需使用手机或录屏工具将视频导出/备份为本地音视频文件（支持 `.mp4`、`.mkv`、`.mov`、`.mp3` 等格式），运行 CLI 时改用 `--file` 本地模式：
+> **通用保底方案**：您只需将视频导出或录屏为本地音视频文件（支持 `.mp4`、`.mkv`、`.mov`、`.mp3` 等常见格式），在运行 CLI 时切换为本地文件模式即可，转写与生成效果同样完美：
 > ```bash
 > video-to-wiki --file "/path/to/your_video.mp4"
 > ```
-> 降级引擎同样能 100% 完美地在本地完成 Faster-Whisper ASR 转写、OralSanitizer 口语清洗、标点重构并生成精美 Markdown 文档！
 
 ---
 
