@@ -23,6 +23,35 @@
 
 ---
 
+## 📺 支持的视频平台与链接范围
+
+本工具依靠极其强大的 `yt-dlp` 解析后端，能无缝解析全球数百个主流视频与社交平台的在线链接，支持的视频链接范围与处理方式如下：
+
+### 1. 支持的在线视频平台及链接范围
+*   🇨🇳 **哔哩哔哩 (Bilibili)**
+    *   **支持范围**：标准单视频（如 `https://www.bilibili.com/video/BV1xxxxxx/`）、短链接（如 `https://b23.tv/xxxxxx`）、多 P 视频（自动读取第一 P，或通过 URL 中包含 `?p=N` 参数精准导入第 N 批）、番剧与国创视频。
+    *   **特别说明**：*为了保护用户隐私，本项目的 README 示例中已全部去除了任何真实的 Bilibili 视频链接，统一采用脱敏的 `BV1xxxxxx` 占位符进行演示。*
+*   🌎 **YouTube**
+    *   **支持范围**：标准播放页面链接（如 `https://www.youtube.com/watch?v=xxxxxx`）、Shorts 短视频链接（如 `https://www.youtube.com/shorts/xxxxxx`）、分享短链（如 `https://youtu.be/xxxxxx`）、YouTube Playlists 播放列表。
+*   📱 **小红书 (Xiaohongshu/xhs)**
+    *   **支持范围**：APP 内分享的短链接（如 `https://xhslink.com/xxxxxx`）以及网页版详情页链接（如 `https://www.xiaohongshu.com/explore/xxxxxx`）。
+*   🎵 **抖音 & 快手 & TikTok**
+    *   **支持范围**：APP 端生成的分享短链接及网页端直接播放的视频链接。
+*   🌐 **其他主流音视频平台**
+    *   **支持范围**：西瓜视频、优酷、爱奇艺、Vimeo、Twitch、TED Talks、Twitter/X 等全球数百个支持视频播放的媒体站点。
+
+### 2. 强风控/加密视频的保底机制 (如微信视频号)
+> [!IMPORTANT]
+> 针对微信视频号、部分平台带强登录态校验、强数字版权保护 (DRM) 的加密视频流，由于平台接口限制，直接输入 URL 链接可能会触发下载失败。
+>
+> **完美替代方案**：用户只需使用手机或录屏工具将视频导出/备份为本地音视频文件（支持 `.mp4`、`.mkv`、`.mov`、`.mp3` 等格式），运行 CLI 时改用 `--file` 本地模式：
+> ```bash
+> video-to-wiki --file "/path/to/your_video.mp4"
+> ```
+> 降级引擎同样能 100% 完美地在本地完成 Faster-Whisper ASR 转写、OralSanitizer 口语清洗、标点重构并生成精美 Markdown 文档！
+
+---
+
 ## 🛠️ 全局 CLI 初始化指南
 
 本工具支持在 Mac Apple Silicon（M1/M2/M3/M4）上本地免 C++ 编译快速部署。
@@ -42,6 +71,9 @@ pip3 install -e .
 ```bash
 which video-to-wiki
 ```
+> [!NOTE]
+> 如果安装后提示 `video-to-wiki not found`，这说明您系统的 Python 用户可执行二进制目录未挂载到系统 `PATH` 路径中。
+> 建议在您的 `~/.zshrc` 或 `~/.bash_profile` 中添加：`export PATH="$PATH:$HOME/Library/Python/3.9/bin"` 即可解决。
 
 ### 3. 配置全局 API Key 与 Wiki 目录
 我们极其推荐您把全局配置文件放在 `~/.config/video-to-wiki/config.yaml` 中，这样无论您在哪个文件夹下运行，都能输出至统一的本地 Obsidian 中。
@@ -67,7 +99,7 @@ which video-to-wiki
 
 ### A. 在线视频一键极速转文字 Wiki (优先在线提取字幕)
 ```bash
-video-to-wiki --url "https://www.bilibili.com/video/BV1r2RWB6EQN/"
+video-to-wiki --url "https://www.bilibili.com/video/BV1xxxxxx/"
 ```
 *如果视频包含可用字幕，将触发极速引擎，在十几秒内秒出排版精美的 Markdown 研报；若无字幕，自动降级为本地 ASR 解码。*
 
@@ -80,7 +112,7 @@ video-to-wiki --file "/Users/byron/Movies/recording.mp4"
 ### C. 可选参数重载
 *   **手动覆盖大模型名称**：
     ```bash
-    video-to-wiki --url "https://www.bilibili.com/video/BV1r2RWB6EQN/" --model "deepseek-v4-pro"
+    video-to-wiki --url "https://www.bilibili.com/video/BV1xxxxxx/" --model "deepseek-v4-pro"
     ```
 *   **调试模式（保留音频/字幕临时缓存）**：
     ```bash
@@ -105,3 +137,20 @@ llm_wiki/
     └── [视频标题].md                    # 口语过滤、排版极其考究的 Markdown 研报
 ```
 每个 Markdown 后均自带带精确定位时间戳的 `## 可用于后续问答的事实` 与 `## 原始转写时间线` 围栏，为 Hermes 提供了高内聚的基础语篇。
+
+---
+
+## ❤️ 依赖与致谢的开源项目
+
+本工具秉持**第一性原理**与**模块化封装**构建，离不开以下优秀开源项目的鼎力支持，在此致以最诚挚的敬意：
+
+### 核心运行时依赖
+*   **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**：世界级、无可匹敌的在线音视频流解析抓取引擎，支持全球数千个平台的媒体探测与字幕提取。
+*   **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)**：基于 CTranslate2 构建的极速本地 Whisper 语音转录解码库，比官方 Whisper 提速达数倍，为 Apple Silicon (M1/M2/M3/M4) 及主流 CPU 提供极佳的本地硬件加速。
+*   **[ffmpeg](https://ffmpeg.org/)**：跨平台的高性能音视频编解码与多媒体物理切片的核心支柱。
+*   **[OpenAI Python SDK](https://github.com/openai/openai-python)**：对 DeepSeek-V4-Pro 旗舰思考模型及其他 OpenAI 兼容多模态接口提供无缝、高性能兼容调用的标准客户端。
+*   **[PyYAML](https://github.com/yaml/pyyaml)**：功能强大的 YAML 配置文件加载与解析器。
+*   **[setuptools](https://github.com/pypa/setuptools)**：Python 官方标准的打包与分发工具，为 `video-to-wiki` 提供无缝的全局命令行 CLI 注册与挂载支持。
+
+### 灵感与技术借鉴
+*   **[AI-Video-Transcriber](https://github.com/wendy7756/AI-Video-Transcriber)**：在双轨探测（字幕优先/ASR 优雅降级）和多平台链接集成设计上，为本项目的管道设计提供了极佳的灵感与思路借鉴。
