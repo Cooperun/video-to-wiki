@@ -1,33 +1,43 @@
 import logging
 import re
-
 from openai import OpenAI
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-
-class DeepSeekProvider:
+class OpenAICompatibleProvider:
+    """
+    OpenAICompatibleProvider connects to any OpenAI API protocol-compliant middleware or gateway.
+    It supports seamless switching of API endpoints, keys, models, and custom structuring prompts.
+    """
     def __init__(
         self,
         api_key,
-        api_base="https://api.deepseek.com",
-        model="deepseek-v4-pro",
-        enable_thinking=True,
-        reasoning_effort="high",
+        api_base,
+        model,
         structuring_prompt=None
     ):
         self.api_key = api_key
         self.api_base = api_base
         self.model = model
-        self.enable_thinking = enable_thinking
-        self.reasoning_effort = reasoning_effort
         self.structuring_prompt = structuring_prompt
 
         if not self.api_key:
             raise ValueError(
-                "错误: 未配置 DeepSeek API Key。\n"
-                "💡 解决方案: 请在本地 shell 中配置: export DEEPSEEK_API_KEY='你的 DeepSeek Key'\n"
-                "当前程序也会尝试读取项目 .env 与 ~/.zshrc。"
+                "错误: 未配置 OpenAI 兼容 API Key。\n"
+                "💡 解决方案: 请在本地 shell 中配置: export OPENAI_API_KEY='你的 Key'\n"
+                "或者在 config.yaml 的 openai_compatible 块中配置 api_key。"
+            )
+        
+        if not self.api_base:
+            raise ValueError(
+                "错误: 未配置 OpenAI 兼容 API Base URL。\n"
+                "💡 解决方案: 请在 config.yaml 的 openai_compatible 块中配置 api_base。"
+            )
+
+        if not self.model:
+            raise ValueError(
+                "错误: 未配置 OpenAI 兼容 Model 名称。\n"
+                "💡 解决方案: 请在 config.yaml 的 openai_compatible 块中配置 model。"
             )
 
         self.client = OpenAI(
@@ -36,6 +46,7 @@ class DeepSeekProvider:
         )
 
     def generate_text_wiki(self, transcript_text, video_title, custom_prompt=None):
+        # Determine active structuring prompt: CLI parameter override > Config File structuring_prompt > Built-in default
         active_prompt = custom_prompt if custom_prompt else self.structuring_prompt
         
         if active_prompt:
@@ -72,19 +83,14 @@ class DeepSeekProvider:
             "max_tokens": 8192,
             "stream": False
         }
-        if self.enable_thinking:
-            request_kwargs["reasoning_effort"] = self.reasoning_effort
-            request_kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
-        else:
-            request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
 
         try:
             response = self.client.chat.completions.create(**request_kwargs)
         except Exception as e:
-            raise RuntimeError(f"DeepSeek 官方 API 请求执行失败: {e}\n请检查 DEEPSEEK_API_KEY 与网络连接。")
+            raise RuntimeError(f"OpenAI 兼容 API 请求执行失败: {e}\n请检查您的 api_key, api_base, model 配置以及网络连接。")
 
         response_text = response.choices[0].message.content
-        logging.info("DeepSeek 文本笔记 API 响应成功！")
+        logging.info(f"OpenAI 兼容 API (模型: {self.model}) 响应成功！")
         clean_markdown = re.sub(r"^```markdown\s*", "", response_text.strip(), flags=re.IGNORECASE)
         clean_markdown = re.sub(r"^```\s*", "", clean_markdown)
         clean_markdown = re.sub(r"\s*```$", "", clean_markdown).strip()

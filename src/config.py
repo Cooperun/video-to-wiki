@@ -40,6 +40,13 @@ class AppConfig:
         self.deepseek_api_base = "https://api.deepseek.com"
         self.deepseek_enable_thinking = True
         self.deepseek_reasoning_effort = "high"
+        self.deepseek_structuring_prompt = ""
+
+        # OpenAI Compatible settings
+        self.openai_compat_api_key = ""
+        self.openai_compat_api_base = ""
+        self.openai_compat_model = ""
+        self.openai_compat_structuring_prompt = ""
         
         self.load_config()
 
@@ -131,6 +138,14 @@ class AppConfig:
         self.deepseek_api_base = deepseek.get("api_base", "https://api.deepseek.com")
         self.deepseek_enable_thinking = deepseek.get("enable_thinking", True)
         self.deepseek_reasoning_effort = deepseek.get("reasoning_effort", "high")
+        self.deepseek_structuring_prompt = deepseek.get("structuring_prompt", "")
+
+        # OpenAI Compatible Config
+        openai_compat = data.get("openai_compatible", {})
+        self.openai_compat_api_key = openai_compat.get("api_key", "")
+        self.openai_compat_api_base = openai_compat.get("api_base", "")
+        self.openai_compat_model = openai_compat.get("model", "")
+        self.openai_compat_structuring_prompt = openai_compat.get("structuring_prompt", "")
         
         self._resolve_keys()
         os.makedirs(self.temp_dir, exist_ok=True)
@@ -143,6 +158,8 @@ class AppConfig:
             self.qwen_api_key = os.environ.get("BAILIAN_API_KEY", "")
         if not self.deepseek_api_key:
             self.deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if not self.openai_compat_api_key:
+            self.openai_compat_api_key = os.environ.get("OPENAI_API_KEY", "")
 
     def _load_env_file(self, env_path):
         if not os.path.exists(env_path):

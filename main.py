@@ -21,7 +21,7 @@ def parse_args():
     
     parser.add_argument("--config", type=str, default=None,
                         help="手动指定要加载的 config.yaml 文件路径。默认自动检索 CWD 与用户主目录。")
-    parser.add_argument("--provider", type=str, choices=["qwen"], default=None, 
+    parser.add_argument("--provider", type=str, choices=["qwen", "deepseek", "openai_compatible"], default=None, 
                         help="多模态大模型引擎，默认读取 config.yaml 中的配置")
     parser.add_argument("--model", type=str, default=None,
                         help="大模型名称，如 deepseek-v4-pro、qwen3-vl-plus 等，覆盖配置文件")

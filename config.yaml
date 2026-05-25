@@ -24,6 +24,19 @@ deepseek:
   model: "deepseek-v4-pro"
   enable_thinking: true
   reasoning_effort: "high"
+  # 结构化输出提示词自定义重载 (留空时默认使用内置高质量 Prompt，支持 {video_title} 和 {transcript_text} 占位符)
+  structuring_prompt: ""
+
+# OpenAI 兼容协议第三方中间件/网关通用配置 (适用于 OneAPI, NewAPI, LiteLLM, Ollama, 智谱, 月之暗面等)
+openai_compatible:
+  # 如为空，将默认读取环境变量 OPENAI_API_KEY
+  api_key: ""
+  # 中间件/网关的 API 基础端点 URL (例如 OneAPI: "https://api.yourdomain.com/v1" 或 Ollama: "http://localhost:11434/v1")
+  api_base: ""
+  # 调用的模型名称 (例如 "deepseek-chat", "gpt-4o", "qwen-plus", "glm-4")
+  model: ""
+  # 结构化输出提示词自定义重载 (留空时默认使用内置高质量 Prompt，支持 {video_title} 和 {transcript_text} 占位符)
+  structuring_prompt: ""
 
 # 本地知识库 llm_wiki 路径 (会被自动同步到该目录下)
 # 默认使用 goofy-meitner 同级目录下的 llm_wiki，你可以修改为你的真实本地 Wiki 路径

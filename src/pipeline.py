@@ -29,9 +29,17 @@ class IngestionPipeline:
         self.provider_name = provider if provider else self.config.provider
         self.qwen_model = model if model and self.provider_name == "qwen" else self.config.qwen_model
         self.deepseek_model = model if model and self.provider_name == "deepseek" else self.config.deepseek_model
+        self.openai_compat_model = model if model and self.provider_name == "openai_compatible" else self.config.openai_compat_model
         
-        self.active_provider_name = self.provider_name if self.config.enable_images else "deepseek"
-        self.active_model_name = self.qwen_model if self.config.enable_images else self.deepseek_model
+        if self.config.enable_images:
+            self.active_provider_name = self.provider_name if self.provider_name == "qwen" else "qwen"
+            self.active_model_name = self.qwen_model
+        else:
+            self.active_provider_name = self.provider_name if self.provider_name in ["deepseek", "openai_compatible"] else "deepseek"
+            if self.active_provider_name == "deepseek":
+                self.active_model_name = self.deepseek_model
+            else:
+                self.active_model_name = self.openai_compat_model
 
     def run(self, input_source, keep_temp=False):
         start_time = time.time()
@@ -41,10 +49,8 @@ class IngestionPipeline:
         logging.info(f" - 临时文件目录: {self.config.temp_dir}")
         logging.info(f" - ASR 语音模型尺寸: {self.config.asr_model_size}")
         logging.info(f" - 字幕优先极速引擎: {'开启' if self.config.asr_subtitle_first else '关闭'}")
-        logging.info(f" - 多模态引擎 Provider: {self.provider_name}")
-        if self.provider_name == "qwen":
-            logging.info(f" - 百炼多模态模型: {self.qwen_model}")
-        logging.info(f" - 文字总结模型: DeepSeek 官方 API / {self.deepseek_model}")
+        logging.info(f" - 激活的多模态/文本 Provider: {self.active_provider_name}")
+        logging.info(f" - 激活的推理总结模型: {self.active_model_name}")
         
         # 1. Download / Sourcing (Subtitle-First dual mode)
         downloader = VideoDownloader(temp_dir=self.config.temp_dir)
@@ -164,20 +170,34 @@ class IngestionPipeline:
         # 6. Model Alignment / Note Generation
         if not self.config.enable_images:
             try:
-                provider = DeepSeekProvider(
-                    api_key=self.config.deepseek_api_key,
-                    api_base=self.config.deepseek_api_base,
-                    model=self.deepseek_model,
-                    enable_thinking=self.config.deepseek_enable_thinking,
-                    reasoning_effort=self.config.deepseek_reasoning_effort
-                )
+                if self.active_provider_name == "deepseek":
+                    provider = DeepSeekProvider(
+                        api_key=self.config.deepseek_api_key,
+                        api_base=self.config.deepseek_api_base,
+                        model=self.deepseek_model,
+                        enable_thinking=self.config.deepseek_enable_thinking,
+                        reasoning_effort=self.config.deepseek_reasoning_effort,
+                        structuring_prompt=self.config.deepseek_structuring_prompt
+                    )
+                elif self.active_provider_name == "openai_compatible":
+                    from src.providers.openai_compatible import OpenAICompatibleProvider
+                    provider = OpenAICompatibleProvider(
+                        api_key=self.config.openai_compat_api_key,
+                        api_base=self.config.openai_compat_api_base,
+                        model=self.openai_compat_model,
+                        structuring_prompt=self.config.openai_compat_structuring_prompt
+                    )
+                else:
+                    logging.error(f"不支持的文本 Provider: {self.active_provider_name}")
+                    sys.exit(1)
+
                 markdown_content = provider.generate_text_wiki(
                     transcript_text=transcript_text,
                     video_title=video_title
                 )
                 selected_frames = []
             except Exception as e:
-                logging.error(f"调用 DeepSeek 官方大模型接口失败: {e}")
+                logging.error(f"调用文本大模型接口失败: {e}")
                 sys.exit(1)
         elif self.provider_name == "qwen":
             try:
