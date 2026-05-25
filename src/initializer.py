@@ -3,8 +3,83 @@ import sys
 import shutil
 import subprocess
 import logging
+import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+def update_yaml_config(filepath, section, key, value):
+    if not os.path.exists(filepath):
+        return False
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        new_lines = []
+        in_section = False
+        updated = False
+
+        for line in lines:
+            stripped = line.strip()
+            # Detect section header, e.g. "deepseek:" or "openai_compatible:"
+            if stripped.startswith(f"{section}:"):
+                in_section = True
+                new_lines.append(line)
+                continue
+            
+            # Detect next section header or end of section
+            if in_section and stripped.endswith(":") and not stripped.startswith("#"):
+                # If we hit another section without matching the key
+                if not stripped.startswith(f"{key}:"):
+                    in_section = False
+
+            if in_section and stripped.startswith(f"{key}:"):
+                # Preserve leading whitespace indentation
+                indent = line[:line.find(key)]
+                # Replace the key line
+                new_lines.append(f'{indent}{key}: "{value}"\n')
+                updated = True
+                in_section = False  # Reset section flag after update
+                continue
+            
+            new_lines.append(line)
+
+        if updated:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
+            return True
+        return False
+    except Exception as e:
+        print(f" ❌ 更新子配置失败: {e}")
+        return False
+
+def update_yaml_top_level(filepath, key, value):
+    if not os.path.exists(filepath):
+        return False
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        new_lines = []
+        updated = False
+
+        for line in lines:
+            stripped = line.strip()
+            # Ensure it's not in a sub-section
+            if stripped.startswith(f"{key}:") and not line.startswith(" ") and not line.startswith("\t"):
+                new_lines.append(f'{key}: "{value}"\n')
+                updated = True
+                continue
+            new_lines.append(line)
+
+        if updated:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
+            return True
+        return False
+    except Exception as e:
+        print(f" ❌ 更新顶层配置失败: {e}")
+        return False
+
 
 class SystemInitializer:
     """
@@ -111,7 +186,61 @@ class SystemInitializer:
             else:
                 print(f"    ❌ 无法检测到您的默认 Shell。请手动将 '{user_bin_dir}' 加入到您的 shell 路径中。")
 
-        # 4. Success summary
+        # 4. Interactive Configuration setup
+        print("\n 🔍 开始检测大模型 API 密钥状态...")
+        has_deepseek_key = False
+        has_openai_key = False
+        
+        # Read current config to see if key is configured
+        if os.path.exists(global_config_file):
+            try:
+                with open(global_config_file, "r", encoding="utf-8") as f:
+                    config_data = yaml.safe_load(f) or {}
+                has_deepseek_key = bool(config_data.get("deepseek", {}).get("api_key"))
+                has_openai_key = bool(config_data.get("openai_compatible", {}).get("api_key"))
+            except Exception:
+                pass
+
+        env_deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+        env_openai_key = os.environ.get("OPENAI_API_KEY")
+
+        if (has_deepseek_key or env_deepseek_key) or (has_openai_key or env_openai_key):
+            print(" ✅ 已检测到您本机的 API 密钥配置，跳过交互式密钥设置。")
+        else:
+            print(" ⚠️ 检测到您尚未配置大模型 API 密钥。")
+            try:
+                choice = input("  👉 是否现在交互式配置大模型 API 密钥？(y/n, 默认 y): ").strip().lower()
+                if choice in ["", "y", "yes"]:
+                    print("\n  请选择您要配置的大模型通道:")
+                    print("   [1] DeepSeek 官方 API (推荐思考总结驱动)")
+                    print("   [2] OpenAI 兼容协议网关/中间件 (适用于 OneAPI, NewAPI, Ollama, 智谱等)")
+                    
+                    sub_choice = input("  请输入序号 (1 或 2, 默认 1): ").strip()
+                    if sub_choice in ["", "1"]:
+                        api_key = input("  🔑 请输入您的 DeepSeek API 密钥 (DEEPSEEK_API_KEY): ").strip()
+                        if api_key:
+                            update_yaml_config(global_config_file, "deepseek", "api_key", api_key)
+                            update_yaml_top_level(global_config_file, "provider", "deepseek")
+                            print("  🎉 DeepSeek 密钥配置成功！默认大模型驱动已自动激活为 'deepseek'。")
+                        else:
+                            print("  ⚠️ 输入为空，跳过配置。")
+                    elif sub_choice == "2":
+                        api_base = input("  🌐 请输入您的网关 Base URL (如 https://api.newapi.com/v1): ").strip()
+                        api_key = input("  🔑 请输入您的网关 API 密钥 (OPENAI_API_KEY): ").strip()
+                        model = input("  🤖 请输入调用的模型名称 (如 deepseek-chat 或 gpt-4o): ").strip()
+                        
+                        if api_base and api_key and model:
+                            update_yaml_config(global_config_file, "openai_compatible", "api_base", api_base)
+                            update_yaml_config(global_config_file, "openai_compatible", "api_key", api_key)
+                            update_yaml_config(global_config_file, "openai_compatible", "model", model)
+                            update_yaml_top_level(global_config_file, "provider", "openai_compatible")
+                            print("  🎉 OpenAI 兼容网关配置成功！默认大模型驱动已自动激活为 'openai_compatible'。")
+                        else:
+                            print("  ⚠️ 输入不完整，跳过配置。")
+            except (KeyboardInterrupt, EOFError):
+                print("\n  ⚠️ 交互输入被中断，已跳过密钥配置。")
+
+        # 5. Success summary
         print("\n" + "="*60)
         print(" 🎉  系统初始化流程圆满结束！")
         print("="*60)
