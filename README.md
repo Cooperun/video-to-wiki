@@ -131,19 +131,4 @@ llm_wiki/
 ```
 每个 Markdown 后均自带带精确定位时间戳的 `## 可用于后续问答的事实` 与 `## 原始转写时间线` 围栏，为 Hermes 提供了高内聚的基础语篇。
 
----
 
-## ❤️ 依赖与致谢的开源项目
-
-本工具秉持**第一性原理**与**模块化封装**构建，离不开以下优秀开源项目的鼎力支持，在此致以最诚挚的敬意：
-
-### 核心运行时依赖
-*   **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**：世界级、无可匹敌的在线音视频流解析抓取引擎，支持全球数千个平台的媒体探测与字幕提取。
-*   **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)**：基于 CTranslate2 构建的极速本地 Whisper 语音转录解码库，比官方 Whisper 提速达数倍，为 Apple Silicon (M1/M2/M3/M4) 及主流 CPU 提供极佳的本地硬件加速。
-*   **[ffmpeg](https://ffmpeg.org/)**：跨平台的高性能音视频编解码与多媒体物理切片的核心支柱。
-*   **[OpenAI Python SDK](https://github.com/openai/openai-python)**：对 DeepSeek-V4-Pro 旗舰思考模型及其他 OpenAI 兼容多模态接口提供无缝、高性能兼容调用的标准客户端。
-*   **[PyYAML](https://github.com/yaml/pyyaml)**：功能强大的 YAML 配置文件加载与解析器。
-*   **[setuptools](https://github.com/pypa/setuptools)**：Python 官方标准的打包与分发工具，为 `video-to-wiki` 提供无缝的全局命令行 CLI 注册与挂载支持。
-
-### 灵感与技术借鉴
-*   **[AI-Video-Transcriber](https://github.com/wendy7756/AI-Video-Transcriber)**：在双轨探测（字幕优先/ASR 优雅降级）和多平台链接集成设计上，为本项目的管道设计提供了极佳的灵感与思路借鉴。
