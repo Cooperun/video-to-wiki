@@ -45,44 +45,35 @@
 
 ---
 
-## 🛠️ 全局 CLI 初始化指南
+## 🛠️ 全局 CLI 初始化与一键配置 (Quickstart)
 
-本工具支持在 Mac Apple Silicon（M1/M2/M3/M4）上本地免 C++ 编译快速部署。
+本工具支持在 Mac Apple Silicon（M1/M2/M3/M4）以及主流 Linux 环境上快速本地部署。
 
-### 1. 安装系统音视频依赖
-本工具调用 ffmpeg 进行音视频处理，请先使用 Homebrew 一键安装：
-```bash
-brew install ffmpeg
-```
-
-### 2. 全局本地安装 CLI 工具
-在克隆或下载的工程根目录下，执行如下命令进行全局“可编辑开发模式”安装：
+### 1. 全局本地安装 CLI 工具
+在克隆或下载的工程根目录下，执行如下命令进行全局可编辑开发模式挂载：
 ```bash
 pip3 install -e .
 ```
-安装完成后，您可以在系统的任意路径下输入下述命令，确认全局可执行程序已正确挂载：
-```bash
-which video-to-wiki
-```
-> [!NOTE]
-> 如果安装后提示 `video-to-wiki not found`，这说明您系统的 Python 用户可执行二进制目录未挂载到系统 `PATH` 路径中。
-> 建议在您的 `~/.zshrc` 或 `~/.bash_profile` 中添加：`export PATH="$PATH:$HOME/Library/Python/3.9/bin"` 即可解决。
 
-### 3. 配置全局 API Key 与 Wiki 目录
-我们极其推荐您把全局配置文件放在 `~/.config/video-to-wiki/config.yaml` 中，这样无论您在哪个文件夹下运行，都能输出至统一的本地 Obsidian 中。
-1. 在您的主目录下创建全局文件夹并把配置复制过去：
-   ```bash
-   mkdir -p ~/.config/video-to-wiki
-   cp config.yaml ~/.config/video-to-wiki/config.yaml
-   ```
-2. 用文本编辑器打开该全局配置，将 `wiki_dir` 修改为您本机 `llm_wiki` 视频库的绝对路径：
-   ```yaml
-   wiki_dir: "/Users/byron/Documents/antigravity/llm_wiki"
-   ```
-3. **环境变量**：确保您的 `~/.zshrc` 或 `~/.bash_profile` 中已注入了 DeepSeek 官方 API 密钥：
-   ```bash
-   export DEEPSEEK_API_KEY="您的真实密钥"
-   ```
+### 2. 运行一键智能初始化命令
+安装完成后，您**不需要手动创建文件夹、复制配置文件或手动修改 PATH 环境变量**。我们为此内置了全自动的一键初始化与依赖检测命令。
+
+只需在终端中执行：
+```bash
+# 执行一键智能初始化
+video-to-wiki --init
+```
+*(提示：若安装后暂时提示 command not found，请直接使用 Python bin 全路径拉起初始化：`/Users/byron/Library/Python/3.9/bin/video-to-wiki --init`)*
+
+**`--init` 命令会自动为您执行以下工作：**
+- 📂 **配置文件夹挂载**：自动在主目录下创建全局文件夹并复制默认 `config.yaml` 模板（位于 `~/.config/video-to-wiki/config.yaml`）。
+- 🔍 **音视频依赖校验**：自动在本地系统检索并验证 `ffmpeg` 与 `yt-dlp` 底层工具链的可用性。
+- 🔄 **环境变量自动补全**：自动探测您当前使用的 Shell 类型（Zsh 或 Bash），检测您的全局 `PATH` 路径，若未包含 CLI 命令所在目录，将**全自动追加环境变量到您的 `~/.zshrc` 或 `~/.bash_profile`** 中，彻底告别手动配置！
+
+### 3. 配置您的密钥
+初始化完成后，为了让工具正常与大模型通信，只需：
+- 用文本编辑器打开并编辑全局配置中的模型与密钥参数：`nano ~/.config/video-to-wiki/config.yaml`。
+- 或者直接在当前终端执行环境变量注入：`export OPENAI_API_KEY="您的密钥"` 或 `export DEEPSEEK_API_KEY="您的密钥"`，本工具将自动无感读取，确保安全。
 
 ---
 

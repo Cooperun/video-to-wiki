@@ -18,6 +18,7 @@ def parse_args():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--url", type=str, help="视频的在线链接 (优先支持 Bilibili、YouTube；强登录平台失败后请用 --file)")
     group.add_argument("--file", type=str, help="本地视频文件的路径 (如微信视频号本地备份, .mp4, .mkv)")
+    group.add_argument("--init", action="store_true", help="一键交互式自动初始化系统全局配置、环境路径与工作区")
     
     parser.add_argument("--config", type=str, default=None,
                         help="手动指定要加载的 config.yaml 文件路径。默认自动检索 CWD 与用户主目录。")
@@ -33,6 +34,16 @@ def main():
     show_banner()
     args = parse_args()
     
+    # 1. Handle One-Click System Initialization
+    if args.init:
+        from src.initializer import SystemInitializer
+        try:
+            SystemInitializer.run_init()
+            sys.exit(0)
+        except Exception as e:
+            logging.error(f"系统智能初始化失败: {e}")
+            sys.exit(1)
+            
     input_source = args.url if args.url else args.file
     
     # Initialize the modular pipeline
