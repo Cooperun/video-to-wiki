@@ -48,6 +48,96 @@
 
 ---
 
+## ✅ 运行依赖与硬件要求
+
+本项目不是单纯的文本处理脚本，它会同时调用下载器、音视频工具、本地 ASR、本地/云端 OCR 和大模型总结服务。建议先确认下面这些依赖，再开始批量导入视频。
+
+### 1. 基础运行环境
+
+| 依赖 | 要求 | 用途 |
+| --- | --- | --- |
+| 操作系统 | macOS / Linux | 当前主要按 Mac Apple Silicon 与主流 Linux 环境验证 |
+| Python | 3.9+，推荐 3.9 - 3.11 | CLI、ASR、OCR、模型调用主运行时 |
+| pip | 与当前 Python 版本匹配 | 安装 `requirements.txt` 中的 Python 包 |
+| 网络 | 在线视频、首次模型下载、云端模型调用时需要 | Bilibili/YouTube 下载、DashScope/DeepSeek/OpenAI Compatible API |
+
+> [!NOTE]
+> Python 3.12+ 是否顺利安装，取决于 `faster-whisper`、`onnxruntime`、`easyocr` 等底层包在当前平台是否已有可用 wheel。生产使用更推荐 Python 3.9 - 3.11。
+
+### 2. 系统级依赖
+
+| 工具 | 是否必需 | 安装示例 | 用途 |
+| --- | --- | --- | --- |
+| `ffmpeg` | 必需 | macOS: `brew install ffmpeg` | 抽音频、抽帧、截图、媒体预处理 |
+| `yt-dlp` | 在线视频必需 | `pip3 install yt-dlp` 或 `brew install yt-dlp` | 下载 Bilibili/YouTube 视频、探测在线字幕 |
+
+`video-to-wiki --init` 会自动检测 `ffmpeg` 和 `yt-dlp` 是否可用，但不会替您安装系统工具。
+
+### 3. Python 包依赖
+
+执行 `pip3 install -e .` 时会读取 `requirements.txt` 并安装核心 Python 依赖：
+
+| 包 | 用途 |
+| --- | --- |
+| `openai` | 统一调用 DeepSeek、Qwen 百炼兼容端点、OpenAI Compatible 网关 |
+| `pyyaml` | 读取 `config.yaml` 配置 |
+| `yt-dlp` | Python 环境中的视频下载工具链 |
+| `faster-whisper` | 本地 ASR 语音识别 |
+| `Pillow` | 图片读取、裁剪、字幕 ROI 处理 |
+| `numpy` | 图像数组与字幕区域检测 |
+| `rapidocr-onnxruntime` | 默认本地 OCR 引擎，适合中文字幕硬字幕 |
+| `easyocr` | 本地 OCR 兜底引擎，RapidOCR 不可用时使用 |
+
+建议额外安装：
+
+```bash
+pip3 install opencv-python
+```
+
+`opencv-python` 用于本地字幕区域定位与 OCR 前图像预处理。缺失时程序会降级到保底字幕区域，但硬字幕识别质量和抗干扰能力会下降。
+
+### 4. API Key 与云端依赖
+
+| 配置项 / 环境变量 | 何时需要 | 说明 |
+| --- | --- | --- |
+| `DEEPSEEK_API_KEY` | 默认总结链路需要 | `provider: deepseek` 时用于生成最终 Wiki 笔记 |
+| `OPENAI_API_KEY` | 使用 OpenAI Compatible 时需要 | 适用于 OneAPI、NewAPI、LiteLLM、Ollama 兼容网关等 |
+| `DASHSCOPE_API_KEY` | 使用 Qwen-VL 或 hybrid 云端 OCR 兜底时需要 | `--ocr-mode cloud` 必需；`--ocr-mode hybrid` 在低置信度帧兜底时需要 |
+
+如果只做本地 ASR 与纯本地 OCR，理论上可以减少云端视觉调用；但生成最终结构化 Wiki 正文仍需要一个文本大模型 provider。
+
+### 5. 模型与缓存
+
+首次运行时，以下组件可能自动下载模型文件：
+
+| 组件 | 默认位置 | 说明 |
+| --- | --- | --- |
+| `faster-whisper` | HuggingFace / CTranslate2 默认缓存目录 | 首次 ASR 会下载 `base` 或 `small` 模型 |
+| `RapidOCR` | Python 包/ONNXRuntime 默认缓存 | 通常随包或首次初始化加载 |
+| `EasyOCR` | `~/.EasyOCR/` | 仅在启用或回退 EasyOCR 时下载检测/识别模型 |
+
+建议预留至少 **5GB** 可用磁盘空间。若使用 `--keep-temp` 保留临时文件，长视频会额外占用视频、音频、抽帧和字幕文件空间。
+
+### 6. 硬件建议
+
+| 场景 | 最低配置 | 推荐配置 |
+| --- | --- | --- |
+| 有在线字幕的视频 | 2 核 CPU / 4GB RAM | 4 核 CPU / 8GB RAM |
+| 无在线字幕，走本地 ASR | 4 核 CPU / 8GB RAM | Apple Silicon M1+ 或 6 核以上 CPU / 16GB RAM |
+| 硬字幕 OCR `hybrid` | 4 核 CPU / 8GB RAM | 8 核 CPU / 16GB RAM，网络稳定 |
+| 批量长视频导入 | 8GB RAM / 10GB 空闲磁盘 | 16GB+ RAM / 20GB+ 空闲磁盘 |
+
+当前 ASR 默认使用 `faster-whisper` 的 CPU `int8` 模式，Apple Silicon 上表现已经足够实用。EasyOCR 会尝试检测 CUDA 或 Apple MPS，但 GPU 不是必需条件。
+
+### 7. 平台注意事项
+
+- **macOS Apple Silicon**：推荐使用 Homebrew 安装 `ffmpeg`，Python 使用 3.9 - 3.11；首次安装 OCR/ASR 依赖可能较慢。
+- **Linux**：建议使用系统包管理器安装 `ffmpeg`，例如 Ubuntu/Debian: `sudo apt install ffmpeg`；服务器环境建议准备 16GB 内存用于批量任务。
+- **YouTube**：`yt-dlp` 需要保持较新版本；遇到 YouTube `n challenge` 或下载失败时，优先升级 `yt-dlp`。
+- **Bilibili**：未登录/无 cookie 时，下载清晰度可能受平台限制；这不影响流程正确性，但会影响硬字幕 OCR 的清晰度上限。
+
+---
+
 ## 🛠️ 全局 CLI 初始化与一键配置 (Quickstart)
 
 本工具支持在 Mac Apple Silicon（M1/M2/M3/M4）以及主流 Linux 环境上快速本地部署。
