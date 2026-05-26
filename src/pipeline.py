@@ -21,9 +21,10 @@ class IngestionPipeline:
     IngestionPipeline orchestrates the entire flow:
     URL/File -> (Subtitle/ASR) -> Sanitizer -> DeepSeek -> Compiler -> llm_wiki
     """
-    def __init__(self, config_path=None, provider=None, model=None, search=False, ocr_mode=None):
+    def __init__(self, config_path=None, provider=None, model=None, search=False, ocr_mode=None, enable_subtitle_ocr=True):
         self.config_path = config_path
         self.config = AppConfig(config_path=self.config_path)
+        self.enable_subtitle_ocr = enable_subtitle_ocr
         
         # CLI overrides
         self.provider_name = provider if provider else self.config.provider
@@ -59,7 +60,9 @@ class IngestionPipeline:
         logging.info(f" - ASR 语音模型尺寸: {self.config.asr_model_size}")
         logging.info(f" - 字幕优先极速引擎: {'开启' if self.config.asr_subtitle_first else '关闭'}")
         logging.info(f" - 多模态视觉硬字幕纠偏: {'开启' if self.search_enabled else '关闭'}")
-        logging.info(f" - 硬字幕 OCR 模式: [{self.config.ocr_mode.upper()}]")
+        logging.info(f" - 嵌入式硬字幕 OCR: {'开启' if self.enable_subtitle_ocr else '关闭'}")
+        if self.enable_subtitle_ocr:
+            logging.info(f" - 硬字幕 OCR 模式: [{self.config.ocr_mode.upper()}]")
         logging.info(f" - 激活的多模态/文本 Provider: {self.active_provider_name}")
         logging.info(f" - 激活的推理总结模型: {self.active_model_name}")
         
@@ -158,7 +161,7 @@ class IngestionPipeline:
         visual_md = ""
         ocr_metrics = None
         
-        if video_path and not subtitles_fetched:
+        if video_path and not subtitles_fetched and self.enable_subtitle_ocr:
             try:
                 from src.pure_subtitle_extractor import VisualSubtitleExtractor
                 ocr_mode = getattr(self.config, 'ocr_mode', 'cloud')

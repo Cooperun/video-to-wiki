@@ -75,8 +75,11 @@ class AppConfig:
         resolved_path = None
         
         # Level 1: Explicit custom override
-        if self.config_path and os.path.exists(self.config_path):
-            resolved_path = self.config_path
+        if self.config_path:
+            explicit_path = os.path.abspath(os.path.expanduser(self.config_path))
+            if not os.path.exists(explicit_path):
+                raise FileNotFoundError(f"显式指定的配置文件不存在: {explicit_path}")
+            resolved_path = explicit_path
         else:
             # Level 2: CWD `./config.yaml`
             cwd_path = os.path.abspath("./config.yaml")
@@ -91,6 +94,7 @@ class AppConfig:
         # Level 4: Built-in Defaults Fallback
         if not resolved_path:
             logging.info("未匹配到任何 config.yaml 配置文件。将启用内置默认参数进行初始化...")
+            self._validate()
             self._resolve_keys()
             
             # Make relative temp_dir absolute relative to package root
@@ -174,9 +178,29 @@ class AppConfig:
         self.ocr_local_confidence_threshold = float(
             subtitle_ocr.get("local_confidence_threshold", 0.5)
         )
+        self._validate()
 
         self._resolve_keys()
         os.makedirs(self.temp_dir, exist_ok=True)
+
+    def _validate(self):
+        provider_choices = {"qwen", "deepseek", "openai_compatible"}
+        if self.provider not in provider_choices:
+            raise ValueError(f"provider 配置非法: {self.provider}，可选: {', '.join(sorted(provider_choices))}")
+
+        ocr_choices = {"cloud", "local", "hybrid"}
+        if self.ocr_mode not in ocr_choices:
+            raise ValueError(f"subtitle_ocr.mode 配置非法: {self.ocr_mode}，可选: {', '.join(sorted(ocr_choices))}")
+
+        local_engine_choices = {"rapidocr", "easyocr", "auto"}
+        if self.ocr_local_engine not in local_engine_choices:
+            raise ValueError(
+                f"subtitle_ocr.local_engine 配置非法: {self.ocr_local_engine}，"
+                f"可选: {', '.join(sorted(local_engine_choices))}"
+            )
+
+        if not 0 <= self.ocr_local_confidence_threshold <= 1:
+            raise ValueError("subtitle_ocr.local_confidence_threshold 必须在 0 到 1 之间。")
 
     def _resolve_keys(self):
         # Resolve Qwen API Key from environment if blank in config

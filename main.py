@@ -1,9 +1,12 @@
 import sys
 import argparse
 import logging
+import os
 from src.pipeline import IngestionPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+VERSION = "1.1.0"
 
 def show_banner():
     banner = """
@@ -13,8 +16,11 @@ def show_banner():
     """
     print(banner)
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="将技术视频转换为带关键帧插图的 Markdown 知识库文章")
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="将技术视频转换为带关键帧插图的 Markdown 知识库文章",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--url", type=str, help="视频的在线链接 (优先支持 Bilibili、YouTube；强登录平台失败后请用 --file)")
     group.add_argument("--file", type=str, help="本地视频文件的路径 (如微信视频号本地备份, .mp4, .mkv)")
@@ -31,15 +37,34 @@ def parse_args():
     parser.add_argument("--search", action="store_true",
                         help="一键激活多模态视觉硬字幕纠偏，校正 ASR 语音中发音模糊的生词名词")
     parser.add_argument("--extract-subtitle", action="store_true",
-                        help="纯画面视觉硬字幕提取功能 (跳过语音 ASR，采用云端 VLM 差分提取)")
+                        help="纯画面视觉硬字幕提取功能 (跳过语音 ASR，只导出 SRT/Markdown)")
     parser.add_argument("--ocr-mode", type=str, choices=["cloud", "local", "hybrid"], default=None,
-                        help="硬字幕 OCR 后端模式：cloud=云端 Qwen-VL（默认）/ local=本地离线 EasyOCR / hybrid=本地优先+云端精修")
-    return parser.parse_args()
+                        help="硬字幕 OCR 后端模式：cloud=云端 Qwen-VL / local=本地 RapidOCR / hybrid=本地优先+云端精修")
+    parser.add_argument("--no-ocr", action="store_true",
+                        help="跳过嵌入式硬字幕 OCR，仅使用在线字幕或 ASR 生成正文")
+    parser.add_argument("--version", action="version", version=f"video-to-wiki {VERSION}")
+    return parser.parse_args(argv)
+
+def resolve_input_source(args):
+    if args.init:
+        return None
+    input_source = args.url if args.url else args.file
+    if args.file:
+        file_path = os.path.abspath(args.file)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"本地文件不存在: {file_path}")
+        return file_path
+    return input_source
+
+def warn_ocr_credentials(config, ocr_mode):
+    if ocr_mode == "cloud" and not config.qwen_api_key:
+        raise RuntimeError("cloud OCR 模式需要配置 DASHSCOPE_API_KEY / BAILIAN_API_KEY 或 qwen.api_key。")
+    if ocr_mode == "hybrid" and not config.qwen_api_key:
+        logging.warning("hybrid OCR 未检测到 Qwen API Key，低置信度云端兜底可能失败；可改用 --ocr-mode local。")
 
 def main():
-    import os
-    show_banner()
     args = parse_args()
+    show_banner()
     
     # 1. Handle One-Click System Initialization
     if args.init:
@@ -51,7 +76,11 @@ def main():
             logging.error(f"系统智能初始化失败: {e}")
             sys.exit(1)
             
-    input_source = args.url if args.url else args.file
+    try:
+        input_source = resolve_input_source(args)
+    except Exception as e:
+        logging.error(e)
+        sys.exit(1)
     
     # 2. Handle Standalone Visual Subtitle Extraction (Phase 9)
     if args.extract_subtitle:
@@ -61,6 +90,13 @@ def main():
         
         logging.info("🚀 启动纯画面视觉硬字幕提取模式 (跳过语音 ASR)...")
         config = AppConfig(config_path=args.config)
+        ocr_mode = args.ocr_mode if args.ocr_mode else getattr(config, 'ocr_mode', 'hybrid')
+        qwen_model = args.model if args.model else config.qwen_model
+        try:
+            warn_ocr_credentials(config, ocr_mode)
+        except Exception as e:
+            logging.error(e)
+            sys.exit(1)
         downloader = VideoDownloader(temp_dir=config.temp_dir)
         
         try:
@@ -69,17 +105,16 @@ def main():
                 logging.info(f"正在抓取解析在线链接并下载视频流: {input_source}")
                 video_path, video_title, _ = downloader.process_input(input_source)
             else:
-                video_path = os.path.abspath(input_source)
+                video_path = input_source
                 video_title = os.path.splitext(os.path.basename(video_path))[0]
                 
             logging.info(f"本地视频文件就绪: {video_path}")
             
             # Step B: Initialize standalone subtitle extractor
-            ocr_mode = args.ocr_mode if args.ocr_mode else getattr(config, 'ocr_mode', 'cloud')
             extractor = VisualSubtitleExtractor(
                 api_key=config.qwen_api_key,
                 api_base=config.qwen_api_base,
-                model=config.qwen_model,
+                model=qwen_model,
                 temp_dir=config.temp_dir,
                 ocr_mode=ocr_mode,
                 local_engine=getattr(config, 'ocr_local_engine', 'rapidocr'),
@@ -129,6 +164,7 @@ def main():
             model=args.model,
             search=args.search,
             ocr_mode=args.ocr_mode,
+            enable_subtitle_ocr=not args.no_ocr,
         )
     except Exception as e:
         logging.error(f"构建 IngestionPipeline 管道失败: {e}")

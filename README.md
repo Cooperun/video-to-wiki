@@ -116,6 +116,10 @@ video-to-wiki --file "/Users/byron/Movies/recording.mp4"
     # 纯本地 OCR，适合离线或零 API 成本场景
     video-to-wiki --file "/path/to/video.mp4" --ocr-mode local
     ```
+*   **跳过嵌入式硬字幕 OCR（只跑在线字幕/ASR）**：
+    ```bash
+    video-to-wiki --url "https://..." --no-ocr
+    ```
 *   **仅提取硬字幕 SRT/Markdown（不生成 Wiki 正文）**：
     ```bash
     video-to-wiki --url "https://..." --extract-subtitle --ocr-mode hybrid
@@ -154,4 +158,3 @@ llm_wiki/
 - **OCR 重复率**：按实际 OCR 尝试次数统计重复识别，反映视频字幕停留时间、差分阈值和采样密度的综合效果。
 
 实际测试中，`hybrid` 模式在 Bilibili 技术视频上可将云端 OCR 调用控制在低个位数百分比，同时保留接近全云端 OCR 的字幕覆盖质量。
-
