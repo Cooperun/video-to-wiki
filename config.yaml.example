@@ -7,9 +7,11 @@ provider: "deepseek"
 qwen:
   # 百炼 API Key。如为空，将默认读取环境变量 DASHSCOPE_API_KEY
   api_key: ""
-  # 当前视觉链路使用的百炼视觉模型。默认图片链路关闭，只有 visual_locator.enabled=true 时才会使用。
+  # Qwen 原生 provider 使用的主模型。默认图片链路关闭，只有 visual_locator.enabled=true 时才会作为图文总结模型使用。
   # 质量优先推荐 qwen3-vl-plus；成本优先可用 qwen3-vl-flash / qwen2.5-vl-7b-instruct。
   model: "qwen3-vl-plus"
+  # 云端硬字幕 OCR / hybrid 兜底使用的视觉模型，可与总结模型分开配置。
+  ocr_model: "qwen3-vl-plus"
   # 后续 VisualLocator 拆分后建议启用：选图用更强视觉模型，写作用长上下文/成本更合适的模型。
   visual_locator_model: "qwen3-vl-plus"
   composer_model: "qwen3-vl-plus"
@@ -45,8 +47,8 @@ search_grounding:
   max_search_results: 3             # 兼容旧配置，当前视觉纠偏不再执行网页检索
 
 # 本地知识库 llm_wiki 路径 (会被自动同步到该目录下)
-# 默认使用 goofy-meitner 同级目录下的 llm_wiki，你可以修改为你的真实本地 Wiki 路径
-wiki_dir: "/Users/byron/Documents/antigravity/llm_wiki"
+# 初始化时可按你的真实 Obsidian/Notion/RAG 知识库位置修改
+wiki_dir: "~/Documents/llm_wiki"
 
 # 本地音频与图片处理临时目录 (处理完后会自动清空，释放空间)
 temp_dir: "./temp"

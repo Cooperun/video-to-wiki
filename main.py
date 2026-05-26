@@ -60,7 +60,7 @@ def warn_ocr_credentials(config, ocr_mode):
     if ocr_mode == "cloud" and not config.qwen_api_key:
         raise RuntimeError("cloud OCR 模式需要配置 DASHSCOPE_API_KEY / BAILIAN_API_KEY 或 qwen.api_key。")
     if ocr_mode == "hybrid" and not config.qwen_api_key:
-        logging.warning("hybrid OCR 未检测到 Qwen API Key，低置信度云端兜底可能失败；可改用 --ocr-mode local。")
+        logging.warning("hybrid OCR 未检测到云端视觉 API Key，将自动退化为本地 OCR；可配置 qwen.api_key 开启云端兜底。")
 
 def main():
     args = parse_args()
@@ -91,7 +91,7 @@ def main():
         logging.info("🚀 启动纯画面视觉硬字幕提取模式 (跳过语音 ASR)...")
         config = AppConfig(config_path=args.config)
         ocr_mode = args.ocr_mode if args.ocr_mode else getattr(config, 'ocr_mode', 'hybrid')
-        qwen_model = args.model if args.model else config.qwen_model
+        qwen_model = args.model if args.model else getattr(config, "qwen_ocr_model", config.qwen_model)
         try:
             warn_ocr_credentials(config, ocr_mode)
         except Exception as e:

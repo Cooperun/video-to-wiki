@@ -10,7 +10,7 @@ class AppConfig:
         
         # Core built-in defaults (Level 4 Fallback)
         self.provider = "deepseek"
-        self.wiki_dir = os.path.expanduser("~/Documents/antigravity/llm_wiki")
+        self.wiki_dir = os.path.expanduser("~/Documents/llm_wiki")
         self.temp_dir = "./temp"
         self.asr_model_size = "base"
         self.asr_language = "zh"
@@ -30,6 +30,7 @@ class AppConfig:
         # Qwen settings
         self.qwen_api_key = ""
         self.qwen_model = "qwen3-vl-plus"
+        self.qwen_ocr_model = "qwen3-vl-plus"
         self.qwen_visual_locator_model = "qwen3-vl-plus"
         self.qwen_composer_model = "qwen3-vl-plus"
         self.qwen_api_base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -111,7 +112,7 @@ class AppConfig:
             data = yaml.safe_load(f) or {}
             
         self.provider = data.get("provider", "deepseek")
-        self.wiki_dir = os.path.abspath(os.path.expanduser(data.get("wiki_dir", "~/Documents/antigravity/llm_wiki")))
+        self.wiki_dir = os.path.abspath(os.path.expanduser(data.get("wiki_dir", "~/Documents/llm_wiki")))
         self.temp_dir = data.get("temp_dir", "./temp")
         if not os.path.isabs(self.temp_dir):
             self.temp_dir = os.path.abspath(os.path.join(root_dir, self.temp_dir))
@@ -145,6 +146,7 @@ class AppConfig:
         qwen = data.get("qwen", {})
         self.qwen_api_key = qwen.get("api_key", "")
         self.qwen_model = qwen.get("model", "qwen3-vl-plus")
+        self.qwen_ocr_model = qwen.get("ocr_model", self.qwen_model)
         self.qwen_visual_locator_model = qwen.get("visual_locator_model", self.qwen_model)
         self.qwen_composer_model = qwen.get("composer_model", self.qwen_model)
         self.qwen_api_base = qwen.get("api_base", "https://dashscope.aliyuncs.com/compatible-mode/v1")
@@ -210,6 +212,18 @@ class AppConfig:
             self.qwen_api_key = os.environ.get("BAILIAN_API_KEY", "")
         if not self.deepseek_api_key:
             self.deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if not self.openai_compat_api_key:
+            compat_base = (self.openai_compat_api_base or "").lower()
+            if "dashscope" in compat_base or "aliyuncs" in compat_base:
+                self.openai_compat_api_key = (
+                    os.environ.get("DASHSCOPE_API_KEY", "")
+                    or os.environ.get("BAILIAN_API_KEY", "")
+                )
+            elif "siliconflow" in compat_base:
+                self.openai_compat_api_key = os.environ.get("SILICONFLOW_API_KEY", "")
+            elif "openrouter" in compat_base:
+                self.openai_compat_api_key = os.environ.get("OPENROUTER_API_KEY", "")
+
         if not self.openai_compat_api_key:
             self.openai_compat_api_key = os.environ.get("OPENAI_API_KEY", "")
 

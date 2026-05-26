@@ -38,6 +38,7 @@ class IngestionPipeline:
         # OCR mode override (CLI wins over config.yaml)
         if ocr_mode:
             self.config.ocr_mode = ocr_mode.lower().strip()
+        self._validate_ocr_runtime()
 
         if self.config.enable_images:
             self.active_provider_name = self.provider_name if self.provider_name == "qwen" else "qwen"
@@ -50,6 +51,23 @@ class IngestionPipeline:
                 self.active_model_name = self.openai_compat_model
         
         self.corrections_log = []
+
+    def _validate_ocr_runtime(self):
+        if not self.enable_subtitle_ocr:
+            return
+
+        if self.config.ocr_mode == "cloud" and not self.config.qwen_api_key:
+            raise RuntimeError(
+                "cloud OCR 模式需要配置云端视觉 API Key。"
+                "请设置 DASHSCOPE_API_KEY / BAILIAN_API_KEY 或 qwen.api_key；"
+                "如果只想本地识别，请改用 --ocr-mode local。"
+            )
+
+        if self.config.ocr_mode == "hybrid" and not self.config.qwen_api_key:
+            logging.warning(
+                "hybrid OCR 未检测到云端视觉 API Key，将自动退化为本地 OCR；"
+                "低置信度帧不会触发云端精修。"
+            )
 
     def run(self, input_source, keep_temp=False):
         start_time = time.time()
@@ -171,7 +189,7 @@ class IngestionPipeline:
                 extractor = VisualSubtitleExtractor(
                     api_key=self.config.qwen_api_key,
                     api_base=self.config.qwen_api_base,
-                    model=self.config.qwen_model,
+                    model=getattr(self.config, "qwen_ocr_model", self.config.qwen_model),
                     temp_dir=self.config.temp_dir,
                     ocr_mode=ocr_mode,
                     local_engine=getattr(self.config, 'ocr_local_engine', 'rapidocr'),

@@ -18,7 +18,8 @@ class VisualSubtitleExtractor:
     支持三种 OCR 后端模式：
       - 'cloud' (默认)：调用云端 Qwen-VL API，精度最高，需要网络和 API Key
       - 'local'       ：调用本地 OCR（默认 RapidOCR），完全离线，零 API 成本
-      - 'hybrid'      ：本地 OCR 初筛，置信度低时自动回退到 Qwen-VL 精修
+      - 'hybrid'      ：本地 OCR 初筛，置信度低且有云端 Key 时回退到 Qwen-VL 精修；
+                        没有云端 Key 时自动退化为 local
 
     使用像素差分过滤最小化 OCR 调用次数，并聚合结果为 SRT / Markdown 格式。
     """
@@ -37,7 +38,7 @@ class VisualSubtitleExtractor:
         初始化字幕提取器。
 
         Args:
-            api_key: Qwen-VL API Key（cloud / hybrid 模式必需）
+            api_key: Qwen-VL API Key（cloud 模式必需；hybrid 模式可选，有则兜底）
             api_base: Qwen-VL API Base URL
             model: Qwen-VL 模型名称
             temp_dir: 临时文件目录
@@ -52,6 +53,13 @@ class VisualSubtitleExtractor:
         self.ocr_mode = ocr_mode.lower().strip()
         self.local_engine = (local_engine or "rapidocr").lower().strip()
         self.local_confidence_threshold = local_confidence_threshold
+        self.cloud_available = bool(self.api_key)
+
+        if self.ocr_mode == "hybrid" and not self.cloud_available:
+            logging.warning(
+                "hybrid OCR 未配置云端视觉 API Key，将自动退化为本地 OCR；"
+                "低置信度帧不会触发云端精修。"
+            )
 
         # Temp dir specifically for subtitle frames
         self.frames_dir = os.path.join(self.temp_dir, "subtitle_frames")
@@ -361,8 +369,8 @@ class VisualSubtitleExtractor:
         路由策略：
           - 'cloud'  → 直接调用 Qwen-VL
           - 'local'  → 直接调用本地 OCR（默认 RapidOCR）
-          - 'hybrid' → 先调用本地 OCR；若置信度 < local_confidence_threshold，
-                       自动升级到 Qwen-VL 精修
+          - 'hybrid' → 先调用本地 OCR；若置信度 < local_confidence_threshold 且存在
+                       云端 Key，则自动升级到 Qwen-VL 精修；否则保留本地结果
         """
         if self.ocr_mode == "local":
             text, confidence = self.ocr_subtitle_local(image_path, box=box)
@@ -379,6 +387,13 @@ class VisualSubtitleExtractor:
             if local_confidence >= self.local_confidence_threshold and local_text != "None":
                 logging.debug(
                     f"  [HybridOCR] ✅ 本地结果采纳 (置信度 {local_confidence:.3f} >= {self.local_confidence_threshold}): '{local_text}'"
+                )
+                return local_text
+
+            if not self.cloud_available:
+                logging.debug(
+                    f"  [HybridOCR] 云端 Key 缺失，保留本地结果: '{local_text}' "
+                    f"(置信度: {local_confidence:.3f})"
                 )
                 return local_text
 

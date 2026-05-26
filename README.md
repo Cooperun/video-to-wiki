@@ -106,6 +106,17 @@ pip3 install opencv-python
 
 如果只做本地 ASR 与纯本地 OCR，理论上可以减少云端视觉调用；但生成最终结构化 Wiki 正文仍需要一个文本大模型 provider。
 
+文本总结模型和云端 OCR 模型是两套配置：
+
+- 文本总结：由 `provider` 决定，读取 `deepseek.*`、`openai_compatible.*` 或 `qwen.model`。
+- 云端 OCR / hybrid 兜底：读取 `qwen.api_base`、`qwen.api_key`、`qwen.ocr_model`。
+
+OCR 运行规则：
+
+- `--ocr-mode local`：只使用本地 RapidOCR/EasyOCR，不需要云端 OCR Key。
+- `--ocr-mode hybrid`：本地 OCR 优先；有 `qwen.api_key` 时低置信度帧会云端兜底，没有 Key 时自动退化为纯本地 OCR。
+- `--ocr-mode cloud`：只使用云端视觉 OCR，必须配置 `DASHSCOPE_API_KEY` / `BAILIAN_API_KEY` 或 `qwen.api_key`。
+
 ### 5. 模型与缓存
 
 首次运行时，以下组件可能自动下载模型文件：
@@ -161,12 +172,30 @@ video-to-wiki --init
 **`--init` 命令会自动为您执行以下工作：**
 - 📂 **配置文件夹挂载**：自动在主目录下创建全局文件夹并复制默认 `config.yaml` 模板（位于 `~/.config/video-to-wiki/config.yaml`）。
 - 🔍 **音视频依赖校验**：自动在本地系统检索并验证 `ffmpeg` 与 `yt-dlp` 底层工具链的可用性。
+- 🧭 **交互式模型接入向导**：引导配置 Wiki 输出目录、主文本大模型 provider、OpenAI 兼容网关/中间件，以及 Qwen-VL OCR 云端兜底。
 - 🔄 **环境变量自动补全**：自动探测您当前使用的 Shell 类型（Zsh 或 Bash），检测您的全局 `PATH` 路径，若未包含 CLI 命令所在目录，将**全自动追加环境变量到您的 `~/.zshrc` 或 `~/.bash_profile`** 中，彻底告别手动配置！
 
 ### 3. 配置您的密钥
-初始化完成后，为了让工具正常与大模型通信，只需：
-- 用文本编辑器打开并编辑全局配置中的模型与密钥参数：`nano ~/.config/video-to-wiki/config.yaml`。
-- 或者直接在当前终端执行环境变量注入：`export OPENAI_API_KEY="您的密钥"` 或 `export DEEPSEEK_API_KEY="您的密钥"`，本工具将自动无感读取，确保安全。
+初始化向导会优先帮助您选择一个可快速接入的文本大模型通道：
+
+| 通道 | 适合场景 | 必填配置 |
+| --- | --- | --- |
+| OpenAI 兼容协议/中间件 | 最通用，适合 OpenAI、OneAPI、NewAPI、LiteLLM、OpenRouter、SiliconFlow、Ollama 等 | `api_base`、`api_key`、`model` |
+| DeepSeek 官方 API | 直接使用 DeepSeek 官方服务 | `DEEPSEEK_API_KEY` 或 `deepseek.api_key` |
+| Qwen 百炼原生通道 | 同一组 DashScope Key 兼顾文本与视觉链路 | `DASHSCOPE_API_KEY` 或 `qwen.api_key` |
+
+您可以把 Key 写入全局配置文件：`nano ~/.config/video-to-wiki/config.yaml`，也可以用环境变量方式注入，例如：
+
+```bash
+export OPENAI_API_KEY="您的 OpenAI 兼容网关密钥"
+export DEEPSEEK_API_KEY="您的 DeepSeek 密钥"
+export DASHSCOPE_API_KEY="您的百炼密钥"
+export SILICONFLOW_API_KEY="您的 SiliconFlow 密钥"
+export OPENROUTER_API_KEY="您的 OpenRouter 密钥"
+```
+
+> [!TIP]
+> 默认硬字幕 OCR 是 `hybrid`：本地 RapidOCR 优先，低置信度帧用 Qwen-VL 云端兜底。若暂时没有 DashScope Key，可在初始化向导中改为 `local`，先以纯本地 OCR 跑通流程。
 
 ---
 
