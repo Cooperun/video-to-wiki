@@ -11,9 +11,12 @@
 - **🚀 全局 CLI 命令行执行**：支持使用 `pip3 install -e .` 注册系统全局命令 `video-to-wiki`。可在终端任意路径瞬间启动，无路径报错阻碍。
 - **⚡ Subtitle-First 字幕优先引擎**：针对在线视频（Bilibili、YouTube），优先快速探测和下载在线精细字幕（官方或自动生成）。**成功匹配时，100% 绕过视频/音频下载和本地 ASR 转录**，将处理耗时由数分钟缩短至 **15 秒以内**！
 - **🎙️ 本地 ASR 优雅降级**：若在线字幕缺失（如本地视频或闭源平台），系统自动以高可靠性降级到本地 `faster-whisper-base` 引擎，进行高精度的本地离线语音识别。
+- **👁️ Hybrid 硬字幕 OCR 引擎**：针对没有在线字幕、但视频画面自带硬字幕的内容，默认启用 `hybrid` 模式：本地 RapidOCR 先识别，低置信度帧自动升级到 Qwen-VL 云端精修。相比全云端 OCR，大幅减少 API 调用；相比纯本地 OCR，又保留疑难帧兜底能力。
+- **📐 自动字幕区域定位**：抽帧后自动用本地 CV 检测画面底部字幕区域，只裁剪字幕 ROI 送入 OCR，减少屏幕 UI、代码窗口、弹幕等无关内容对识别的干扰。
 - **🧹 OralSanitizer 本地口语废词过滤与紧凑合并**：
   - **废词精剪**：自动清洗 `就是说`、`那什么`、`呃`、`啊` 等数十种高频中文叹词与口癖。
   - **10倍语义段落重组**：将原本 ASR 出的数百个 0.5s~1s 零碎微片段，智能重组为带精确标点、长短适宜（150字内）的连贯“语义段落”，**使大模型推理生成提速 16% 以上**，并为以后的 Hermes RAG 块分割提供无可比拟的高内聚物理断句。
+- **🩺 ASR/OCR 术语纠偏与自愈**：内置专有名词纠偏词库，支持持久化 `custom_corrections.json`。最终文章生成后，会用文章语义反向清洗转写时间线，避免把 `DPC`、`Pain Mode`、`clothcode md`、孤立乱码等 ASR/OCR 噪声直接留在知识库文档里。
 - **🧠 辩证型旗舰 DeepSeek-V4-Pro 总结**：原生对接官方 2026 最新 reasoning 思考规范，提供极高事实密度的技术剖析，并提供 ASR 专业口误纠偏与多维辩证争议点剖析。
 - **📂 4级配置文件自动检索**：无需在当前执行目录下放置 `config.yaml`。AppConfig 会根据以下四级防线自动定位您的 Obsidian wiki 路径：
   1. 命令行参数 `--config` 手动指定。
@@ -102,6 +105,21 @@ video-to-wiki --file "/Users/byron/Movies/recording.mp4"
     ```bash
     video-to-wiki --url "https://..." --keep-temp
     ```
+*   **指定硬字幕 OCR 模式**：
+    ```bash
+    # 默认推荐：本地 RapidOCR 优先，低置信度帧云端兜底
+    video-to-wiki --url "https://..." --ocr-mode hybrid
+
+    # 全云端 Qwen-VL OCR，适合做高精度对照测试
+    video-to-wiki --url "https://..." --ocr-mode cloud
+
+    # 纯本地 OCR，适合离线或零 API 成本场景
+    video-to-wiki --file "/path/to/video.mp4" --ocr-mode local
+    ```
+*   **仅提取硬字幕 SRT/Markdown（不生成 Wiki 正文）**：
+    ```bash
+    video-to-wiki --url "https://..." --extract-subtitle --ocr-mode hybrid
+    ```
 *   **手动覆盖配置文件路径**：
     ```bash
     video-to-wiki --url "https://..." --config "/path/to/my-config.yaml"
@@ -118,8 +136,22 @@ llm_wiki/
 └── 视频知识库/
     ├── manifests/
     │   └── [视频标题].manifest.json      # 导入记录元数据 (schema_version 1)
+    ├── [视频标题]_纯视觉字幕.srt          # 硬字幕 OCR 时间轴（启用视频 OCR 时生成）
+    ├── [视频标题]_纯视觉字幕.md           # 硬字幕 OCR Markdown 版本
     └── [视频标题].md                    # 口语过滤、排版极其考究的 Markdown 研报
 ```
-每个 Markdown 后均自带带精确定位时间戳的 `## 可用于后续问答的事实` 与 `## 原始转写时间线` 围栏，为 Hermes 提供了高内聚的基础语篇。
+每个 Markdown 后均自带带精确定位时间戳的 `## 可用于后续问答的事实` 与 `## 校正后转写时间线` 围栏。时间线会结合最终正文进行术语修复和噪声清洗，不再直接发布未处理的 ASR/OCR 原始流水。
 
+---
+
+## 📊 质量评估指标
+
+当视频没有在线字幕并触发 ASR + OCR 流程时，命令行会输出以下关键指标，便于判断本次入库质量：
+
+- **ASR-OCR 语音覆盖率**：ASR 语义段中有多少能在视觉字幕时间线上找到重叠字幕。
+- **OCR 模式与调用次数**：显示 `cloud/local/hybrid`，以及云端与本地 OCR 调用量。
+- **Hybrid 升级精修次数**：本地 OCR 低置信度、交给云端 Qwen-VL 兜底的帧数。
+- **OCR 重复率**：按实际 OCR 尝试次数统计重复识别，反映视频字幕停留时间、差分阈值和采样密度的综合效果。
+
+实际测试中，`hybrid` 模式在 Bilibili 技术视频上可将云端 OCR 调用控制在低个位数百分比，同时保留接近全云端 OCR 的字幕覆盖质量。
 

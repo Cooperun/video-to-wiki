@@ -11,6 +11,7 @@ class VideoDownloader:
     def __init__(self, temp_dir):
         self.temp_dir = temp_dir
         os.makedirs(self.temp_dir, exist_ok=True)
+        self.downloaded_files = []
 
     def sanitize_title(self, title):
         """
@@ -164,9 +165,23 @@ class VideoDownloader:
                 target_path = os.path.abspath(os.path.join(self.temp_dir, file))
                 source_metadata["download_status"] = "ok"
                 logging.info(f"视频下载成功，本地路径: {target_path}")
+                self.downloaded_files.append(target_path)
                 return target_path, sanitized_title, source_metadata
 
         raise FileNotFoundError(f"未能在临时文件夹中找到下载成功的视频文件。")
+
+    def cleanup(self):
+        """
+        Delete downloaded files to free up space.
+        """
+        if hasattr(self, 'downloaded_files'):
+            for path in self.downloaded_files:
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                        logging.info(f"🧹 已清理临时视频文件: {path}")
+                    except Exception as e:
+                        logging.warning(f"无法清理临时视频文件 {path}: {e}")
 
     def download_subtitles(self, url, sanitized_title):
         """

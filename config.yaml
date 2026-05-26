@@ -1,6 +1,6 @@
 # Video to Wiki Ingestion Configuration Template
 
-# 默认的多模态/文本引擎驱动 (可选项: deepseek, qwen, zhipu, gemini)
+# 默认的多模态/文本引擎驱动 (可选项: deepseek, qwen, openai_compatible)
 provider: "deepseek"
 
 # 阿里云百炼 (Qwen-VL) 配置
@@ -37,6 +37,12 @@ openai_compatible:
   model: ""
   # 结构化输出提示词自定义重载 (留空时默认使用内置高质量 Prompt，支持 {video_title} 和 {transcript_text} 占位符)
   structuring_prompt: ""
+
+# 视觉硬字幕纠偏配置 (用于 ASR 专有名词校验，默认关闭)
+search_grounding:
+  enabled: false                    # 是否开启多模态视觉纠偏
+  max_keywords: 3                   # 兼容旧配置，当前视觉纠偏最多分析 2-3 个存疑词
+  max_search_results: 3             # 兼容旧配置，当前视觉纠偏不再执行网页检索
 
 # 本地知识库 llm_wiki 路径 (会被自动同步到该目录下)
 # 默认使用 goofy-meitner 同级目录下的 llm_wiki，你可以修改为你的真实本地 Wiki 路径
@@ -79,3 +85,19 @@ output:
   # standard: ![说明](assets/image.jpg)，兼容 Obsidian、网页、GitHub Markdown、Hermes 等大多数渲染器
   # obsidian: ![[assets/image.jpg]]，仅适合 Obsidian WikiLink 图片嵌入
   image_link_style: "standard"
+
+# 视频硬字幕 OCR 提取模式配置
+subtitle_ocr:
+  # OCR 后端模式：
+  #   cloud  - 完全使用云端 Qwen-VL（精度最高，需要 API Key 和网络，有 token 成本）
+  #   local  - 完全本地 OCR（默认 RapidOCR，零成本，完全离线）
+  #   hybrid - 本地 OCR 优先，置信度不足时自动升级到 Qwen-VL 精修（推荐：成本与精度最优平衡）
+  mode: "hybrid"
+
+  # 本地 OCR 引擎：rapidocr / easyocr / auto。中文硬字幕推荐 rapidocr。
+  local_engine: "rapidocr"
+
+  # hybrid 模式专用：本地置信度阈值。
+  # 本地 OCR 返回的置信度低于此值时，自动升级到云端 Qwen-VL 精修。
+  # 推荐范围: 0.4 ~ 0.7 （越低越节省 API 调用，越高云端精修越多）
+  local_confidence_threshold: 0.5

@@ -31,7 +31,8 @@ class WikiCompiler:
         visual_anchors=None,
         provider_name="",
         model_name="",
-        keep_temp=False
+        keep_temp=False,
+        asr_corrections=None
     ):
         """
         Package Markdown and screenshots into llm_wiki structure,
@@ -164,7 +165,8 @@ class WikiCompiler:
             structured_segments=structured_segments,
             provider_name=provider_name,
             model_name=model_name,
-            imported_at=imported_at
+            imported_at=imported_at,
+            asr_corrections=asr_corrections
         )
         
         # 4. Garbage Collection (Clean Up temporary directory)
@@ -194,8 +196,12 @@ class WikiCompiler:
                 "- 本节由导入工具预留，用于后续将视频内容整理为更细粒度的事实卡片。\n"
             )
 
-        if transcript_text and "## 原始转写时间线" not in final_body:
-            final_body += "\n\n## 原始转写时间线\n\n"
+        if (
+            transcript_text
+            and "## 校正后转写时间线" not in final_body
+            and "## 原始转写时间线" not in final_body
+        ):
+            final_body += "\n\n## 校正后转写时间线\n\n"
             final_body += "```text\n"
             final_body += transcript_text.strip()
             final_body += "\n```\n"
@@ -214,13 +220,15 @@ class WikiCompiler:
         structured_segments,
         provider_name,
         model_name,
-        imported_at
+        imported_at,
+        asr_corrections=None
     ):
         manifest = {
             "schema_version": 1,
             "imported_at": imported_at,
             "video_title": video_title,
             "source": source_metadata,
+            "asr_corrections": asr_corrections or [],
             "outputs": {
                 "markdown_path": markdown_path,
                 "assets_dir": self.assets_dir,

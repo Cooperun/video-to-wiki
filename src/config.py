@@ -47,6 +47,19 @@ class AppConfig:
         self.openai_compat_api_base = ""
         self.openai_compat_model = ""
         self.openai_compat_structuring_prompt = ""
+
+        # Search Grounding settings
+        self.search_grounding_enabled = False
+        self.search_max_keywords = 3
+        self.search_max_search_results = 3
+
+        # Subtitle OCR settings
+        self.ocr_mode = "hybrid"                    # 'cloud' / 'local' / 'hybrid'
+        self.ocr_local_engine = "rapidocr"          # 'rapidocr' / 'easyocr' / 'auto'
+        self.ocr_local_confidence_threshold = 0.5   # hybrid: below this → escalate to cloud
+
+        # Custom Corrections file path (for persistent ASR normalizer dictionary)
+        self.custom_corrections_path = os.path.abspath("./custom_corrections.json")
         
         self.load_config()
 
@@ -88,6 +101,7 @@ class AppConfig:
 
         self.config_path = resolved_path
         logging.info(f"成功加载配置文件: {self.config_path}")
+        self.custom_corrections_path = os.path.join(os.path.dirname(self.config_path), "custom_corrections.json")
         
         with open(self.config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
@@ -146,7 +160,21 @@ class AppConfig:
         self.openai_compat_api_base = openai_compat.get("api_base", "")
         self.openai_compat_model = openai_compat.get("model", "")
         self.openai_compat_structuring_prompt = openai_compat.get("structuring_prompt", "")
-        
+
+        # Search Grounding Config
+        search = data.get("search_grounding", {})
+        self.search_grounding_enabled = search.get("enabled", False)
+        self.search_max_keywords = search.get("max_keywords", 3)
+        self.search_max_search_results = search.get("max_search_results", 3)
+
+        # Subtitle OCR Config
+        subtitle_ocr = data.get("subtitle_ocr", {})
+        self.ocr_mode = subtitle_ocr.get("mode", "hybrid").lower().strip()
+        self.ocr_local_engine = subtitle_ocr.get("local_engine", "rapidocr").lower().strip()
+        self.ocr_local_confidence_threshold = float(
+            subtitle_ocr.get("local_confidence_threshold", 0.5)
+        )
+
         self._resolve_keys()
         os.makedirs(self.temp_dir, exist_ok=True)
 

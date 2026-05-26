@@ -2,3 +2,7 @@ openai>=1.0.0
 pyyaml
 yt-dlp
 faster-whisper
+Pillow
+numpy
+easyocr
+rapidocr-onnxruntime
