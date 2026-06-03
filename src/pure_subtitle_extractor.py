@@ -581,6 +581,23 @@ class VisualSubtitleExtractor:
             self.subtitle_region_confidence = 0.0
             logging.info("📐 [Extractor] 未能自动定位字幕区域，将使用默认下方字幕裁剪框。")
 
+        # 1.5 前置探测：均匀采样判断视频是否存在硬字幕，无字幕则快速退出
+        total_frames = len(renamed_files)
+        if total_frames > 0:
+            probe_count = min(10, total_frames)
+            sample_indices = [int(i * total_frames / probe_count) for i in range(probe_count)]
+            sample_paths = [frame_paths[i] for i in sample_indices]
+            empty_probes = sum(
+                1 for p in sample_paths
+                if self.is_subtitle_empty(p, box=self.subtitle_region_box, std_dev_threshold=std_dev_threshold)
+            )
+            if empty_probes >= probe_count * 0.8:
+                logging.info(
+                    f"📐 [Extractor] 前置探测: {probe_count} 帧（均匀分布）中 {empty_probes} 帧无字幕文字，"
+                    f"判断该视频无硬字幕，跳过全量 OCR。"
+                )
+                return "", ""
+
         # 2. 遍历帧，差分过滤 + OCR
         subtitle_timeline = []
         prev_path = None
@@ -595,7 +612,6 @@ class VisualSubtitleExtractor:
         logging.info(
             f"🔮 [Extractor] 开始执行像素差分过滤与 [{self.ocr_mode.upper()}] 字幕 OCR 提取流程..."
         )
-        total_frames = len(renamed_files)
         skipped_count = 0
         blank_skipped_count = 0
 

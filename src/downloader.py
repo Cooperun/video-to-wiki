@@ -194,21 +194,41 @@ class VideoDownloader:
         output_template = os.path.join(self.temp_dir, sanitized_title)
         
         cmd = yt_dlp_cmd + [
+            "--remote-components", "ejs:github",
             "--write-subs",
             "--write-auto-subs",
             "--sub-langs", "zh-Hans,zh-CN,zh-HK,zh-TW,zh,en",
-            "--sub-format", "vtt/srt",
+            "--sub-format", "vtt/srt/best",
             "--skip-download",
             "-o", output_template,
             url
         ]
-        
+
+        # Ensure node is in PATH for EJS challenge solver
+        node_bin = os.path.dirname(os.popen("which node 2>/dev/null").read().strip()) or "/Users/byron/.hermes/node/bin"
+        env_path = os.environ.get("PATH", "")
+        if node_bin not in env_path:
+            os.environ["PATH"] = f"{node_bin}:{env_path}"
+
         logging.info(f"Subtitle-First: 尝试使用 yt-dlp 获取在线字幕...")
         try:
-            # Short timeout to ensure we fail fast if network blocks
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=25)
+            # Capture stderr for diagnostics instead of swallowing it
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                logging.warning(f"yt-dlp 字幕获取失败 (exit {result.returncode}): {result.stderr.strip()[-500:]}")
+            if result.stderr:
+                # Log yt-dlp warnings (e.g. "no subtitles found", "auto-generated subs not available")
+                stderr_lower = result.stderr.lower()
+                if any(kw in stderr_lower for kw in ['warning', 'subtitle', 'caption', 'error', 'not found', 'unable']):
+                    for line in result.stderr.strip().split('\n'):
+                        line = line.strip()
+                        if line:
+                            logging.info(f"yt-dlp: {line}")
+        except subprocess.TimeoutExpired:
+            logging.warning(f"yt-dlp 字幕获取超时 (30s)，可能代理未配置或网络不通")
+            return None
         except Exception as e:
-            logging.warning(f"获取在线字幕下载失败或超时: {e}")
+            logging.warning(f"获取在线字幕下载失败: {e}")
             return None
             
         # Scan temp_dir for downloaded subtitle files
