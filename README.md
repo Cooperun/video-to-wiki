@@ -252,18 +252,16 @@ video-to-wiki --file "/Users/byron/Movies/recording.mp4"
 
 ## 📁 Wiki 输出目录结构规范
 
-IngestionPipeline 处理完成后，您的 `llm_wiki` 文件夹中将生成如下标准化事实资产：
+IngestionPipeline 处理完成后，您的 `llm_wiki` 文件夹中默认只保留最终 Wiki 文章。硬字幕 OCR 的 SRT/Markdown 中间产物只参与内部校验和时间线修复，不再写入最终结果目录。
 
 ```
 llm_wiki/
 └── 视频知识库/
-    ├── manifests/
-    │   └── [视频标题].manifest.json      # 导入记录元数据 (schema_version 1)
-    ├── [视频标题]_纯视觉字幕.srt          # 硬字幕 OCR 时间轴（启用视频 OCR 时生成）
-    ├── [视频标题]_纯视觉字幕.md           # 硬字幕 OCR Markdown 版本
-    └── [视频标题].md                    # 口语过滤、排版极其考究的 Markdown 研报
+    └── [视频标题].md                    # 口语过滤、术语修复后的最终 Markdown 研报
 ```
 每个 Markdown 后均自带带精确定位时间戳的 `## 可用于后续问答的事实` 与 `## 校正后转写时间线` 围栏。时间线会结合最终正文进行术语修复和噪声清洗，不再直接发布未处理的 ASR/OCR 原始流水。
+
+如需调试或单独导出硬字幕文件，可显式运行 `--extract-subtitle`，此模式会按需生成 `_纯视觉字幕.srt` 与 `_纯视觉字幕.md`。
 
 ---
 

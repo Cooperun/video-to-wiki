@@ -174,9 +174,9 @@ class IngestionPipeline:
             logging.warning("警告: 转录时间线内容为空。")
             transcript_text = "[无声音或未检测到有效语音转写]"
 
-        # Embedded stand-alone visual subtitle extraction logic
-        visual_srt = ""
-        visual_md = ""
+        # Embedded visual subtitle extraction is used only as an internal signal
+        # for ASR/OCR alignment and timeline repair. Normal ingestion should
+        # publish a single final Markdown article, not intermediate subtitle files.
         ocr_metrics = None
         
         if video_path and not subtitles_fetched and self.enable_subtitle_ocr:
@@ -196,8 +196,9 @@ class IngestionPipeline:
                     local_confidence_threshold=local_conf,
                 )
                 
-                # Execute extraction with Heuristic 3 active
-                visual_srt, visual_md = extractor.run_extraction(video_path, interval_sec=2.0)
+                # Execute extraction with Heuristic 3 active. The returned SRT/MD
+                # strings are intentionally not written to the wiki in normal mode.
+                extractor.run_extraction(video_path, interval_sec=2.0)
                 
                 # Compute telemetry metrics comparing ASR segments and OCR timeline (Requirement 2)
                 total_ocr_attempts = extractor.ocr_called_count + getattr(extractor, "ocr_local_count", 0)
@@ -219,20 +220,7 @@ class IngestionPipeline:
                 logging.info(f"  - ⚠️ OCR重复识别次数: {ocr_metrics['ocr_duplicates']} (重复率: {ocr_metrics['duplicate_rate']:.2f}%)")
                 logging.info(f"  - 🎯 OCR语音覆盖率: {ocr_metrics['ocr_coverage_rate']:.2f}% (命中数: {ocr_metrics['hits']})")
                 logging.info("="*50 + "\n")
-                
-                # Save visual subtitle SRT and MD to llm_wiki
-                wiki_video_dir = os.path.join(self.config.wiki_dir, "视频知识库")
-                os.makedirs(wiki_video_dir, exist_ok=True)
-                
-                visual_srt_path = os.path.join(wiki_video_dir, f"{video_title}_纯视觉字幕.srt")
-                visual_md_path = os.path.join(wiki_video_dir, f"{video_title}_纯视觉字幕.md")
-                
-                with open(visual_srt_path, "w", encoding="utf-8") as f:
-                    f.write(visual_srt)
-                with open(visual_md_path, "w", encoding="utf-8") as f:
-                    f.write(visual_md)
-                    
-                logging.info(f" 📂 纯视觉字幕文件已同步导出到: {visual_srt_path}")
+                logging.info(" 📦 纯视觉字幕时间线仅作为内部校验信号使用，不再写入最终 Wiki 目录。")
                 
                 # Combine both results to construct a dual-source combined timeline (Requirement 4)
                 transcript_text = self.format_dual_source_timeline(structured_segments, extractor.subtitle_timeline)
